@@ -1,0 +1,2 @@
+# AutoTrader
+automated trading controller
