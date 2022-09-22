@@ -154,13 +154,16 @@ public function checkPositions(){
         $result = $this->getTrade($currpair['symbol']);
         if(!($result->result) == null){
             foreach($result->result as $item){
-              //  dump($item);
+             //   dump($item);
                 $entry_price = $item->entry_price;
-              //  dump($entry_price);
+             //   dump($entry_price);
                 $qty = $item->size;
-              //  dump($qty);
+             //   dump($qty);
                 $side = $item->side;
-             //   dump($side);
+            //    dump($side);
+             $leverage = $item->leverage;
+            // $leverage = 10;
+                dump($leverage);
 
                 if($side == 'Sell'){
                     $side = 'Buy';
@@ -172,8 +175,12 @@ public function checkPositions(){
             
             
             
-            (float)$pnl = TradeFacade::checkPnL($mark_price, $entry_price, $side);
-           // dump($pnl);
+            (float)$pnl = TradeFacade::checkPnL($qty,$leverage,$mark_price, $entry_price, $side);
+            dump($pnl);
+
+            if($pnl != null){
+
+            
 
             if($pnl<-5){
                 $params = [
@@ -182,6 +189,15 @@ public function checkPositions(){
                     'sell_leverage' => 5,
                     'timestamp' => time() * 1000,
                 ];
+
+                $url = "http://localhost:8001";
+                $curl_url=$url."?".http_build_query($params);
+                $curl = curl_init();
+                curl_setopt($curl, CURLOPT_URL, $curl_url);
+                curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+                $result = curl_exec($curl);
+
+              //  dump($result);
 
 
             }else if($pnl>5){
@@ -205,6 +221,7 @@ public function checkPositions(){
 
                 
             }
+        }
         
     }
     
