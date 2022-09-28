@@ -18,7 +18,7 @@ FunctionsFramework::http('closeTrade', 'closeTrade');
 
 require "apiCalling.php";
 
-
+// the cloud function for opening a trade
 function openTrade(ServerRequestInterface $request): string
 {
 //8080
@@ -28,11 +28,8 @@ function openTrade(ServerRequestInterface $request): string
         $symbol = '';
         $qty = '';
         $side = '';
-        
-        
 
-
-
+   
         $queryString = $request->getQueryParams();
         $qty = $queryString['qty'] ?? $qty;
         $symbol = $queryString['symbol'] ?? $symbol;
@@ -60,7 +57,7 @@ function openTrade(ServerRequestInterface $request): string
 
      return $result;
 }
-
+// the function for changing the leverage
 function setLeverage(ServerRequestInterface $request): string
 {//8001
     $url = 'https://api-testnet.bybit.com/private/linear/position/set-leverage';
@@ -70,17 +67,14 @@ function setLeverage(ServerRequestInterface $request): string
     $symbol = '';
 
     $queryString = $request->getQueryParams();
-    $leverage = $queryString['qty'] ?? $leverage;
     $symbol = $queryString['symbol'] ?? $symbol;
+    $leverage = $queryString['leverage']?? $leverage;
         
 
     $params = [
         'symbol' => $symbol,
         'buy_leverage' => $leverage,
         'sell_leverage' => $leverage,
-        // 'time_in_force' => 'GoodTillCancel',
-        // 'reduce_only' => false,
-        // 'close_on_trigger' => false,
          'timestamp' => time() * 1000,
         
     ]; 
@@ -93,7 +87,7 @@ function setLeverage(ServerRequestInterface $request): string
 
 
 
-
+// the function for closing the trade
 function closeTrade(ServerRequestInterface $request): string
 {//8002
     $name = 'World';

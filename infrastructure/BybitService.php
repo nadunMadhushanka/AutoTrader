@@ -2,13 +2,26 @@
 
 namespace infrastructure;
 
+use App\Models\Rate;
 use App\Models\Record;
 use App\Models\Symbol;
 use infrastructure\Facades\BybitApiFacade;
-use infrastructure\Facades\BybitFacade;
 use domain\Facades\TradeFacade;
+use stdClass;
+use Throwable;
 
 class BybitService {
+
+   
+
+    
+
+    function __construct()
+    {
+        $this->rate = new Rate();
+        $this->record = new Record();
+        $this->symbol = new Symbol();
+    }
 
       
  
@@ -22,10 +35,14 @@ public function changeLev($params){
     $curl = curl_init();
     curl_setopt($curl, CURLOPT_URL, $curl_url);
     curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-    $result = curl_exec($curl);
 
-    dump($result);
-    
+    try {
+        $result = curl_exec($curl);
+
+    } catch (Throwable $e) {
+        return $e;
+    }
+      
 
 }
 
@@ -42,7 +59,7 @@ public function getTickers(){
 }
 
 
-
+// get the marcket price
 public function marketPrice($symbol){
     $param = ['symbol' => $symbol];
         $url = 'https://api-testnet.bybit.com/v2/public/tickers';
@@ -58,17 +75,28 @@ public function marketPrice($symbol){
 
 // this function excecute few functions and finally open an order
 public function placeMarketOrder(){
-    $result = Record::getRecords();
+    $result = $this->record::getPendingRecords();
 
     foreach($result as $item){
         $symbol = $item->symbol;
         $price = $item->price;
         $id = $item->id;
+        $leverage = $item->leverage;
+        
+        $params = [
+            'symbol' => $symbol,
+            'leverage' => $leverage,
+            'timestamp' => time() * 1000,
+        ];
+
+        
+
+        $this->changeLev($params);
 
         $markPrice = $this->marketPrice($symbol);
         
         $this->checkPrice($price,$markPrice,$id,$item);
-        Symbol::addSymbols($symbol);
+        $this->symbol::addSymbols($symbol);
         }
     }
 
@@ -76,94 +104,180 @@ public function placeMarketOrder(){
 
 
 
-
-
-//this function drops records
-public function destroy($id)
-    {
-        Record::destroy($id);
-        return redirect('home')->with('flash_message', 'Product deleted!');  
-    }
-
-
-
-
-
-
-    //this function compare mark price and trade price and then call a cloud func to open a trade
+//this function compare mark price and trade price and then call a cloud func to open a trade
 public function checkPrice($price,$markPrice,$id,$params){
+
+
+    if(($params->side) == 'Buy'){
+
+        if($price < $markPrice){
+
+            $input['symbol'] = $params->symbol;
+            $input['qty'] = $params->qty;
+            $input['side'] = $params->side;
+            $input['rep_rate'] = $params->rep_rate;
+
+
+
+            $result = $this->tradeOpen($params);
+
+
+            if(($result->ret_code) == 0){
+                $this->rate::create($input); 
+                $order_price = $result->result->price;
+                $order_id = $result->result->order_id;
+                $this->record::aditStatus($id,$order_id,$order_price);
+
+            }else{
+                return $result->ret_code;
+
+            }
+
+            
+
+    }
+}else if(($params->side) == 'Sell') {
 
         if($price >= $markPrice){
 
+            $input['symbol'] = $params->symbol;
+            $input['qty'] = $params->qty;
+            $input['side'] = $params->side;
+            $input['rep_rate'] = $params->rep_rate;
+
+
+            $result = $this->tradeOpen($params);
+
+            if(($result->ret_code) == 0){
+                $this->rate::create($input);
+                $order_price = $result->result->price;
+                $order_id = $result->result->order_id;
+                $this->record::aditStatus($id,$order_id,$order_price);
+
+            }else{
+                return $result->ret_code;
+            }
+            
+
+    }       
+}
+        
+   
+
+}
+
+
+
+
+// function for opening the trade
+public function tradeOpen($params){
+
+    $input['symbol'] = $params->symbol;
+            $input['qty'] = $params->qty;
+            $input['side'] = $params->side;
+
+
             $url = "http://localhost:8080";
-            $curl_url=$url."?".http_build_query($params);
+            $curl_url=$url."?".http_build_query($input);
             $curl = curl_init();
             curl_setopt($curl, CURLOPT_URL, $curl_url);
             curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-            $result = curl_exec($curl);  
-            $this->destroy($id);
-            dump($result);  
-            return 'yes';
-        }else{
-            dump('no');
-        }
+
+
+            try {
+                
+                $resultStr = curl_exec($curl); 
+
+                $result = json_decode($resultStr);
+
+                return $result;
+            } catch (Throwable $e) {
+                return $e;
+            }
+            
 }
 
 
-
-
-
-
-//this function gets all the trade records 
- public function getTrade($currpair)
-    {
-        $url = 'https://api-testnet.bybit.com/private/linear/position/list';
-        $method = 'GET';
-
-    $params = [
-        'symbol' => $currpair, 
-         //'exec_type' => 'Trade',
-         //'order_status' => 'New',
-       //  'order_type' => 'Market',
-        // 'time_in_force' => 'GoodTillCancel',
-        // // 'reduce_only' => true,
-        // // 'close_on_trigger' => false,
-         'timestamp' => time() * 1000,
-    ];
-
-    return BybitApiFacade::signedRequest($params,$url,$method);
-
-}
-
-
-
-
-
-
-
-
+// check the pnl and closing or changing the leverage
 public function checkPositions(){
 
-    $symbols = Symbol::getSymbols();
+   
 
-    //dd($symbols);
+    $records = $this->record::getSucceedRecords();
 
-    foreach($symbols as $currpair){
-        $mark_price = $this->marketPrice($currpair['symbol']);
-        
-        $result = $this->getTrade($currpair['symbol']);
-        if(!($result->result) == null){
-            foreach($result->result as $item){
-             //   dump($item);
-                $entry_price = $item->entry_price;
-             //   dump($entry_price);
-                $qty = $item->size;
-             //   dump($qty);
-                $side = $item->side;
-            //    dump($side);
-             $leverage = $item->leverage;
-            // $leverage = 10;
-                dump($leverage);
+    foreach($records as $trade){
+        $mark_price = $this->marketPrice($trade->symbol);
+    
+         if(!($trade->id) == null){
+             
+                $entry_price = $trade->order_price;
+                $qty = $trade->qty;
+                $side = $trade->side;
+             $leverage = $trade->leverage;
+
+                
+    
+            
+            (float)$pnl = TradeFacade::checkPnL($qty,$leverage,$mark_price, $entry_price, $side);
+
+            if($pnl != null){
+
+                try {
+                    $result = $this->rate::getRate($trade->symbol,$side);
+                } catch (Throwable $th) {
+                    return $th;
+                }
+
+                
+
+                foreach($result as $rates){
+                   $rep_rate = $rates->rep_rate;
+                   
+                   $qty = $rates->qty;
+                   $id = $rates->id;
+                   if($pnl<=$rep_rate){
+
+                    $params = new stdClass();
+                    
+                    $params->symbol = $trade->symbol;
+                    $params->side = $side;
+                    $params->qty = $qty;
+
+                   $result = $this->tradeOpen($params);
+
+                   try {
+                    $this->rate::aditStatus($id);
+                   } catch (Throwable $th) {
+                    return $th;
+                   }
+                   }
+                   }
+                }
+            
+
+            if($pnl<-5){
+                $params = [
+                    'symbol' => $trade->symbol,
+                    'leverage' => 5,
+                    'timestamp' => time() * 1000,
+                ];
+
+
+                $url = "http://localhost:8001";
+                $curl_url=$url."?".http_build_query($params);
+                $curl = curl_init();
+                curl_setopt($curl, CURLOPT_URL, $curl_url);
+                curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+
+
+                try {
+                    $result = curl_exec($curl);
+                } catch (Throwable $e) {
+                    return $e;
+                }
+                
+
+            }else if($pnl>5){
 
                 if($side == 'Sell'){
                     $side = 'Buy';
@@ -171,39 +285,8 @@ public function checkPositions(){
                     $side = 'Sell';
                 }
 
-
-            
-            
-            
-            (float)$pnl = TradeFacade::checkPnL($qty,$leverage,$mark_price, $entry_price, $side);
-            dump($pnl);
-
-            if($pnl != null){
-
-            
-
-            if($pnl<-5){
                 $params = [
-                    'symbol' => $currpair['symbol'],
-                    'buy_leverage' => 5, 
-                    'sell_leverage' => 5,
-                    'timestamp' => time() * 1000,
-                ];
-
-                $url = "http://localhost:8001";
-                $curl_url=$url."?".http_build_query($params);
-                $curl = curl_init();
-                curl_setopt($curl, CURLOPT_URL, $curl_url);
-                curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-                $result = curl_exec($curl);
-
-              //  dump($result);
-
-
-            }else if($pnl>5){
-
-                $params = [
-                    'symbol' => $currpair['symbol'],
+                    'symbol' => $trade->symbol,
                     'price' => $entry_price,
                     'qty' => $qty,
                     'side' => $side
@@ -215,20 +298,29 @@ public function checkPositions(){
                 $curl = curl_init();
                 curl_setopt($curl, CURLOPT_URL, $curl_url);
                 curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-                $result = curl_exec($curl);
+                
 
-              //  dump($result);
+                try {
+                    $resultStr = curl_exec($curl);
+                    $result = json_decode($resultStr);
+                    if ($result->ret_code == 0) {
+                        $this->record::addClosedStatus($id);
+                    }
+                } catch (Throwable $th) {
+                    return $th;
+                }
 
                 
+                
+     
             }
-        }
-        
+        } 
     }
-    
-}
-}
 
 }
 }
+
+
+
 
 

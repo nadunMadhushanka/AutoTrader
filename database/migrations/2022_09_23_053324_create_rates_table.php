@@ -13,17 +13,13 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('record', function (Blueprint $table) {
+        Schema::create('rates', function (Blueprint $table) {
             $table->id();
             $table->string('symbol');
-            $table->string('price');
             $table->string('qty');
             $table->string('side');
             $table->string('rep_rate');
-            $table->string('leverage');
             $table->string('status');
-            $table->string('order_id');
-            $table->string('order_price');
             $table->timestamps();
         });
     }
@@ -35,6 +31,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('record');
+        Schema::dropIfExists('rates');
     }
 };
