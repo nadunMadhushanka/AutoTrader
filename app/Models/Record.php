@@ -26,6 +26,13 @@ class Record extends Model
           return $status;
           }
 
+    static function getClosedRecords(){
+            $status = DB::table('record')->select('id','leverage','symbol', 'price','qty','side','rep_rate','order_price','order_id')->where('status','=',2)->get();
+          // $status = self::select()->whereColumn('symbol', 'price')->get();
+            return $status;
+            }
+  
+
 
     static function aditStatus($id,$order_id,$entry_price){
           self::where('id',$id)->update(['status' => 1,'order_id'=>$order_id,'order_price'=>$entry_price]);

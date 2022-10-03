@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('/', [App\Http\Controllers\HomeController::class, 'index']);
+Route::get('/', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
 Route::post('/set-record', [\App\Http\Controllers\BybitController::class, 'placeOrder']);
+
+Route::get('/dashboard', [\App\Http\Controllers\BybitController::class, 'viewData'])->name('dashboard');

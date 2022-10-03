@@ -2,7 +2,9 @@
 
 use Psr\Http\Message\ServerRequestInterface;
 
-function setLeverage(ServerRequestInterface $request): string
-{
-    return "";
-}
+// function laravel(ServerRequestInterface $request): string
+// {
+//     require_once __DIR__.'/public/index.php';
+
+//     return '';
+// }

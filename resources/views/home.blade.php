@@ -4,7 +4,9 @@
 
 <div class="container">
     <div class="position-relative row justify-content-center">
-        <div class="position-absolute col-md-8">
+        <a href="{{ route('dashboard') }}" class="btn btn-success col-md-6">GO TO SEE MY RECORDS</a>
+        
+        <div class="position-absolute col-md-8  mt-5">
             <div class="card p-3 ">
                 <h5 class="card-header bg-success text-white">Create a record</h5>
                 <form class="form-inline" action="/set-record" method="post">
@@ -49,6 +51,7 @@
                     <input class="btn btn-success" type="submit" value="Save record">
                 </form>
             </div>
+
         </div>
 
     </div>

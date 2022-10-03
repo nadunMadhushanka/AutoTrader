@@ -24,4 +24,9 @@ class BybitController extends Controller
        //  BybitFacade::checkPositions();
         return redirect('/');
     }
+
+
+    public function viewData(){
+        return view('dashboard');
+    }
 }
